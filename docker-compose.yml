@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:5173"  # Map host port 5173 to container port 5173
+    networks:
+      - webnet
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "3000:3000"  # Map host port 3000 to container port 3000
+    environment:
+      NODE_ENV: production
+    networks:
+      - webnet
+
+networks:
+  webnet:
