@@ -11,27 +11,20 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import xss from 'xss-clean';
 
-// Load environment variables from .env file
 dotenv.config();
 
 const app = express();
 
-// Apply security middleware
-
-// Helmet helps secure your Express apps by setting various HTTP headers
 app.use(helmet());
 
-// Rate Limiting: limit repeated requests to public APIs
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per window
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
 });
 app.use('/api/', apiLimiter);
 
-// XSS Clean: to sanitize user input from POST body, GET queries, and URL params
 app.use(xss());
 
-// Body parser for JSON payloads
 app.use(express.json());
 
 app.use(cors({
