@@ -1,98 +1,92 @@
-// import express from 'express';
-// import path from 'path';
-// import { fileURLToPath } from 'url';
-// import sqlite3 from 'sqlite3';
-// import cors from 'cors';
-
-// const app = express();
-// app.use(express.json())
-// app.use(cors({
-//   origin: '*',
-//   optionsSuccessStatus: 200,
-// }));
-
-// const connection = new sqlite3.Database('./db/aplikasi.db')
-
-// app.get('/api/user/:id', (req, res) => {
-//   const query = `SELECT * FROM users WHERE id = ${req.params.id}`;
-//   console.log(query)
-//   connection.all(query, [req.params.id], (error, results) => {
-//     if (error) throw error;
-//     res.json(results);
-//   });
-// });
-
-// app.post('/api/user/:id/change-email', (req, res) => {
-//   const newEmail = req.body.email;
-//   const query = `UPDATE users SET email = '${newEmail}' WHERE id = ${req.params.id}`;
-
-//   connection.run(query, function (err) {
-//     if (err) throw err;
-//     if (this.changes === 0 ) res.status(404).send('User not found');
-//     else res.status(200).send('Email updated successfully');
-//   });
-
-// });
-
-// app.get('/api/file', (req, res) => {
-//   const __filename = fileURLToPath(import.meta.url); 
-//   const __dirname = path.dirname(__filename); 
-
-//   const filePath = path.join(__dirname, 'files', req.query.name);
-//   res.sendFile(filePath);
-// });
-
-// app.listen(3000, () => {
-//   console.log('Server running on port 3000');
-// });
-
 import express from 'express';
 import path from 'path';
+import validator from 'validator';
 import { fileURLToPath } from 'url';
 import sqlite3 from 'sqlite3';
 import cors from 'cors';
+import https from 'https';
+import fs from 'fs';
+import dotenv from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import xss from 'xss-clean';
+
+// Load environment variables from .env file
+dotenv.config();
 
 const app = express();
-app.use(express.json())
 
-// Restrict CORS origin to a specific domain
+// Apply security middleware
+
+// Helmet helps secure your Express apps by setting various HTTP headers
+app.use(helmet());
+
+// Rate Limiting: limit repeated requests to public APIs
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per window
+});
+app.use('/api/', apiLimiter);
+
+// XSS Clean: to sanitize user input from POST body, GET queries, and URL params
+app.use(xss());
+
+// Body parser for JSON payloads
+app.use(express.json());
+
 app.use(cors({
-  origin: 'https://your-allowed-domain.com',
+  origin: `http://localhost:${process.env.FRONTEND_PORT || '8080'}`,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   optionsSuccessStatus: 200,
 }));
 
-// Connect to the SQLite database
-const connection = new sqlite3.Database('./db/aplikasi.db')
 
-// Parameterized query to prevent SQL injection
+const dbPath = process.env.DB_PATH;
+console.log('Database path:', dbPath); 
+const connection = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('Failed to connect to SQLite database:', err.message);
+    return;
+  }
+  console.log('Connected to SQLite database');
+});
+
 app.get('/api/user/:id', (req, res) => {
   const query = `SELECT * FROM users WHERE id = ?`;
-  console.log(query)
   connection.all(query, [req.params.id], (error, results) => {
     if (error) throw error;
     res.json(results);
   });
 });
 
-// Secure update query to prevent SQL injection
 app.post('/api/user/:id/change-email', (req, res) => {
+  const newEmail = req.body.email;
+
+  if (!validator.isEmail(newEmail)) {
+    return res.status(400).send('Invalid email format');
+  }
+  if (newEmail.length > 320) {
+    return res.status(400).send('Email exceeds maximum length of 320 characters.');
+  }
+
   const query = `UPDATE users SET email = ? WHERE id = ?`;
-  connection.run(query, [req.body.email, req.params.id], function (err) {
+  connection.run(query, [newEmail, req.params.id], function (err) {
     if (err) throw err;
     if (this.changes === 0) res.status(404).send('User not found');
     else res.status(200).send('Email updated successfully');
   });
 });
 
-// File download with path sanitization to prevent path traversal
 app.get('/api/file', (req, res) => {
-  const __filename = fileURLToPath(import.meta.url); 
-  const __dirname = path.dirname(__filename); 
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
 
-  const fileName = path.basename(req.query.name); // sanitize input
+  let fileName = path.basename(req.query.name);
+  if (!/^[\w,\s-]+\.[A-Za-z]{3,4}$/.test(fileName)) {
+    return res.status(400).send('Invalid file name.');
+  }
+
   const filePath = path.join(__dirname, 'files', fileName);
-
-  // Handle missing files gracefully
   res.sendFile(filePath, (err) => {
     if (err) {
       res.status(404).send('File not found');
@@ -100,6 +94,11 @@ app.get('/api/file', (req, res) => {
   });
 });
 
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send('Something went wrong!');
+});
+
+app.listen(process.env.PORT || 3000, () => {
+  console.log(`Server running on port ${process.env.PORT || 3000}`);
 });

@@ -1,20 +1,25 @@
-# Use an official Node.js runtime as a parent image
-FROM node:18
+# Stage 1: Build the frontend app
+FROM node:22 AS build
 
-# Set the working directory in the container
+# Set the working directory
 WORKDIR /app
 
-# Copy package.json and pnpm-lock.yaml files
+# Copy package files and install dependencies
 COPY package.json pnpm-lock.yaml ./
-
-# Install dependencies using pnpm
 RUN npm install -g pnpm && pnpm install
 
-# Copy the rest of the application code
+# Copy the rest of the application code and build it
 COPY . .
+RUN pnpm run build
 
-# Expose port 5173 (default for Vite development)
-EXPOSE 5173
+# Stage 2: Serve the built frontend using Nginx
+FROM nginx:alpine
 
-# Start the Vite server
-CMD ["npm", "run", "dev"]
+# Copy the built files to Nginx's HTML directory
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Expose the default Nginx port
+EXPOSE 80
+
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]

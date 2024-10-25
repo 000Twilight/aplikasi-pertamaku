@@ -7,19 +7,38 @@ const users = ref(null);
 const newEmail = ref('');
 
 const getUser = async () => {
-  const response = await fetch(`http://localhost:3000/api/user/${userId.value}`);
-  users.value = await response.json();
+  try {
+    const response = await fetch(`http://localhost:8081/mario/backend/api/user/${userId.value}`);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    users.value = await response.json();
+  } catch (error) {
+    console.error('Failed to fetch user:', error.message);
+  }
 };
 
 const changeEmail = async () => {
-  await fetch('http://localhost:3000/api/change-email', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: `email=${newEmail.value}`,
-  });
+  try {
+    const response = await fetch(`http://localhost:8081/mario/backend/api/user/${userId.value}/change-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: newEmail.value }), 
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+
+    const result = await response.text();
+    console.log('Email updated successfully:', result);
+  } catch (error) {
+    console.error('Failed to update email:', error.message);
+  }
 };
+
 </script>
 
 <template>

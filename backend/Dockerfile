@@ -1,20 +1,18 @@
-# Use an official Node.js runtime as a parent image
-FROM node:18
+# Use the official Node.js image
+FROM node:22
 
-# Set the working directory in the container
+# Set the working directory
 WORKDIR /app
 
-# Copy package.json and pnpm-lock.yaml files
+# Copy package files and install dependencies
 COPY package.json pnpm-lock.yaml ./
-
-# Install dependencies using pnpm
 RUN npm install -g pnpm && pnpm install
 
 # Copy the rest of the application code
 COPY . .
 
-# Expose port 3000 (the port where the Node.js app runs)
+# Expose the backend port
 EXPOSE 3000
 
-# Start the application
+# Start the backend server
 CMD ["node", "server.js"]

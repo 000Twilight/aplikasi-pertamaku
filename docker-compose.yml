@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   frontend:
     build:
       context: ./frontend
     ports:
-      - "5173:5173"  # Map host port 5173 to container port 5173
+      - "${FRONTEND_PORT}:80" 
     networks:
       - webnet
 
@@ -13,9 +11,25 @@ services:
     build:
       context: ./backend
     ports:
-      - "3000:3000"  # Map host port 3000 to container port 3000
+      - "${PORT}:${PORT}"
     environment:
       NODE_ENV: production
+      SUBDOMAIN: ${USER_NAME}
+      DB_PATH: ${DB_PATH}
+    volumes:
+      - ./backend/db/aplikasi.db:/app/db/aplikasi.db
+    networks:
+      - webnet
+  
+  proxy:
+    image: nginx:alpine
+    container_name: reverse-proxy
+    ports:
+      - "8081:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    environment:
+      SUBDOMAIN: ${USER_NAME}
     networks:
       - webnet
 
